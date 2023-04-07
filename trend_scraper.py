@@ -1,4 +1,5 @@
 import requests, sys, time, os, argparse, json
+from dotenv import load_dotenv
 import pandas as pd
 
 # List of simple to collect features
@@ -168,7 +169,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     output_dir = args.output_dir
-    api_key = os.getenv('YOUTUBE_API_KEY')
+
+    # Load .env
+    load_dotenv()
+    api_key = os.getenv("YOUTUBE_API_KEY")
+
+    print(api_key)
     country_code = "ID" # Indonesia
 
     youtube_trending_data = get_data(country_code, api_key)
