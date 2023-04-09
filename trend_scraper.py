@@ -1,33 +1,21 @@
-import requests, sys, time, os, argparse, json
+import requests, sys, time, os, datetime, json, re
 from dotenv import load_dotenv
 import pandas as pd
+from category import CATEGORY_DICT
 
 # List of simple to collect features
 snippet_features = ["title",
                     "publishedAt",
                     "channelId",
-                    "channelTitle",
-                    "categoryId"]
+                    "channelTitle"]
 
 # Any characters to exclude, generally these are things that become problematic in CSV files
 unsafe_characters = ['\n', '"']
 
 # Used to identify columns, currently hardcoded order
-header = ["video_id"] + snippet_features + ["trending_date", "tags", "view_count", "likes", "dislikes",
+header = ["video_id"] + snippet_features + ["category","duration","trending_date", "tags", "view_count", "likes",
                                             "comment_count", "thumbnail_link", "comments_disabled",
                                             "ratings_disabled", "description"]
-
-
-def setup(api_path):
-    with open(api_path, 'r') as file:
-        api_key = file.readline()
-
-    # When you want to get list of country code from txt line (sparated by newline)
-    # with open(code_path) as file:
-    #     country_codes = [x.rstrip() for x in file]
-
-    return api_key #, country_codes
-
 
 def prepare_feature(feature):
     # Removes any character from the unsafe characters list and surrounds the whole item in quotes
@@ -39,7 +27,7 @@ def prepare_feature(feature):
 def api_request(page_token, country_code, api_key):
     # Builds the URL and requests the JSON from it
 
-    request_url = f"https://www.googleapis.com/youtube/v3/videos?part=id,statistics,snippet{page_token}chart=mostPopular&regionCode={country_code}&maxResults=50&key={api_key}"
+    request_url = f"https://www.googleapis.com/youtube/v3/videos?part=id,statistics,snippet,contentDetails{page_token}chart=mostPopular&regionCode={country_code}&maxResults=50&key={api_key}"
     
     while True:
         try:
@@ -64,6 +52,15 @@ def get_tags(tags_list):
     # Takes a list of tags, prepares each tag and joins them into a string by the pipe character
     return prepare_feature("|".join(tags_list))
 
+def get_duration(duration_iso):
+    match = re.match(r'^PT((\d+)H)?((\d+)M)?((\d+)S)?$', duration_iso)
+    hours = int(match.group(2)) if match.group(2) else 0
+    minutes = int(match.group(4)) if match.group(4) else 0
+    seconds = int(match.group(6)) if match.group(6) else 0
+    duration_seconds = (hours * 3600) + (minutes * 60) + seconds
+    duration_minutes = duration_seconds / 60
+    return duration_minutes
+
 
 def get_videos(items):
     data_dicts = []
@@ -76,7 +73,6 @@ def get_videos(items):
         if "statistics" not in video:
             continue
 
-        # A full explanation of all of these features can be found on the GitHub page for this project
         video_id = prepare_feature(video['id'])
 
         # Snippet and statistics are sub-dicts of video, containing the most useful info
@@ -87,21 +83,23 @@ def get_videos(items):
         features = [prepare_feature(snippet.get(feature, "")) for feature in snippet_features]
 
         # The following are special case features which require unique processing, or are not within the snippet dict
+        category = CATEGORY_DICT[snippet.get("categoryId","0")]
         description = snippet.get("description", "")
         thumbnail_link = snippet.get("thumbnails", dict()).get("default", dict()).get("url", "")
         trending_date = time.strftime("%y.%d.%m")
         tags = get_tags(snippet.get("tags", ["[none]"]))
         view_count = statistics.get("viewCount", 0)
 
+        content_details = video['contentDetails']
+        duration  = get_duration(content_details.get("duration",0))
+
         # This may be unclear, essentially the way the API works is that if a video has comments or ratings disabled
         # then it has no feature for it, thus if they don't exist in the statistics dict we know they are disabled
-        if 'likeCount' in statistics and 'dislikeCount' in statistics:
+        if 'likeCount' in statistics:
             likes = statistics['likeCount']
-            dislikes = statistics['dislikeCount']
         else:
             ratings_disabled = True
             likes = 0
-            dislikes = 0
 
         if 'commentCount' in statistics:
             comment_count = statistics['commentCount']
@@ -110,7 +108,7 @@ def get_videos(items):
             comment_count = 0
 
         # Compiles all of the various bits of info into one consistently formatted line
-        line = [video_id] + features + [prepare_feature(x) for x in [trending_date, tags, view_count, likes, dislikes,
+        line = [video_id] + features + [prepare_feature(x) for x in [category, duration,trending_date, tags, view_count, likes,
                                                                        comment_count, thumbnail_link, comments_disabled,
                                                                        ratings_disabled, description]]
         data_dict = dict(zip(header,line))
@@ -161,26 +159,16 @@ def get_data(country_code, api_key):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--key_path', help='Path to the file containing the api key, by default will use api_key.txt in the same directory', default='api_key.txt')
-    #parser.add_argument('--country_code_path', help='Path to the file containing the list of country codes to scrape, by default will use country_codes.txt in the same directory', default='country_codes.txt')
-    parser.add_argument('--output_dir', help='Path to save the outputted files in', default='trend_output/')
-
-    args = parser.parse_args()
-
-    output_dir = args.output_dir
+    output_dir = 'trend_output/'
 
     # Load .env
     load_dotenv()
     api_key = os.getenv("YOUTUBE_API_KEY")
-
-    print(api_key)
     country_code = "ID" # Indonesia
 
     youtube_trending_data = get_data(country_code, api_key)
 
     for comment in youtube_trending_data:
         print(json.dumps(comment, indent=2))
-    print(youtube_trending_data)
 
     write_to_file(country_code, youtube_trending_data, output_dir)

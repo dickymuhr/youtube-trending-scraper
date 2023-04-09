@@ -1,2 +1,3 @@
 .env
 /trend_output
+__pycache__
