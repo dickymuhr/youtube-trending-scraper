@@ -1,6 +1,6 @@
 from typing import List, Dict
 
-class Videos:
+class Video:
     def __init__(self,arr: List[str]):
         self.video_id = arr[0]
         self.title = arr[1]
@@ -15,8 +15,8 @@ class Videos:
         self.likes = arr[10]
         self.comment_count = arr[11]
         self.thumbnail_link = arr[12]
-        self.comment_disabled = arr[13]
-        self.rating_disabled = arr[14]
+        self.comments_disabled = arr[13]
+        self.ratings_disabled = arr[14]
         self.description = arr[15]
 
     @classmethod
@@ -35,7 +35,10 @@ class Videos:
             d["likes"],
             d["comment_count"],
             d["thumbnail_link"],
-            d["comment_disabled"],
-            d["rating_disabled"],
+            d["comments_disabled"],
+            d["ratings_disabled"],
             d["description"]
         ])
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}: {self.__dict__}"

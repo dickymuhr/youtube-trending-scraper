@@ -2,6 +2,7 @@ import requests, sys, time, os, datetime, json, re
 from dotenv import load_dotenv
 import pandas as pd
 from category import CATEGORY_DICT
+from video import Video
 
 # List of simple to collect features
 snippet_features = ["title",
@@ -112,7 +113,8 @@ def get_videos(items):
                                                                        comment_count, thumbnail_link, comments_disabled,
                                                                        ratings_disabled, description]]
         data_dict = dict(zip(header,line))
-        data_dicts.append(data_dict)
+        # Append videos object to list
+        data_dicts.append(Video.from_dict(data_dict))
     return data_dicts
 
 
@@ -140,6 +142,7 @@ def get_pages(country_code, api_key, next_page_token="&"):
 
 
 def write_to_file(country_code, list_comments, output_dir):
+    #in case want to debug with see the csv file produced
     print(f"Writing {country_code} data to file...")
 
     if not os.path.exists(output_dir):
@@ -169,6 +172,6 @@ if __name__ == "__main__":
     youtube_trending_data = get_data(country_code, api_key)
 
     for comment in youtube_trending_data:
-        print(json.dumps(comment, indent=2))
+        print(json.dumps(comment.__dict__, default=str,  indent=2))
 
-    write_to_file(country_code, youtube_trending_data, output_dir)
+    #write_to_file(country_code, youtube_trending_data, output_dir)
