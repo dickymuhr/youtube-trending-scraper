@@ -10,14 +10,15 @@ class Video:
         self.category = arr[5]
         self.duration = arr[6]
         self.trending_date = arr[7]
-        self.tags = arr[8]
-        self.view_count = arr[9]
-        self.likes = arr[10]
-        self.comment_count = arr[11]
-        self.thumbnail_link = arr[12]
-        self.comments_disabled = arr[13]
-        self.ratings_disabled = arr[14]
-        self.description = arr[15]
+        self.trending_country = arr[8]
+        self.tags = arr[9]
+        self.view_count = arr[10]
+        self.likes = arr[11]
+        self.comment_count = arr[12]
+        self.thumbnail_link = arr[13]
+        self.comments_disabled = arr[14]
+        self.ratings_disabled = arr[15]
+        self.description = arr[16]
 
     @classmethod
     def from_dict(cls, d: Dict):
@@ -30,6 +31,7 @@ class Video:
             d["category"],
             d["duration"],
             d["trending_date"],
+            d["trending_country"],
             d["tags"],
             d["view_count"],
             d["likes"],

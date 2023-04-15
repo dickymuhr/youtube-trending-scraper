@@ -1,8 +1,11 @@
 import requests, sys, time, os, datetime, json, re
+from typing import List
 from dotenv import load_dotenv
 import pandas as pd
 from category import CATEGORY_DICT
+from settings import COUNTRY_CODES
 from video import Video
+import pycountry
 
 # List of simple to collect features
 snippet_features = ["title",
@@ -14,7 +17,7 @@ snippet_features = ["title",
 unsafe_characters = ['\n', '"']
 
 # Used to identify columns, currently hardcoded order
-header = ["video_id"] + snippet_features + ["category","duration","trending_date", "tags", "view_count", "likes",
+header = ["video_id"] + snippet_features + ["category","duration","trending_date", "trending_country" ,"tags", "view_count", "likes",
                                             "comment_count", "thumbnail_link", "comments_disabled",
                                             "ratings_disabled", "description"]
 
@@ -63,7 +66,7 @@ def get_duration(duration_iso):
     return duration_minutes
 
 
-def get_videos(items):
+def get_videos(items,country_code):
     data_dicts = []
     for video in items:
         comments_disabled = False
@@ -88,6 +91,7 @@ def get_videos(items):
         description = snippet.get("description", "")
         thumbnail_link = snippet.get("thumbnails", dict()).get("default", dict()).get("url", "")
         trending_date = time.strftime("%y.%d.%m")
+        trending_country = pycountry.countries.get(alpha_2=country_code).name
         tags = get_tags(snippet.get("tags", ["[none]"]))
         view_count = statistics.get("viewCount", 0)
 
@@ -109,7 +113,7 @@ def get_videos(items):
             comment_count = 0
 
         # Compiles all of the various bits of info into one consistently formatted line
-        line = [video_id] + features + [prepare_feature(x) for x in [category, duration,trending_date, tags, view_count, likes,
+        line = [video_id] + features + [prepare_feature(x) for x in [category, duration,trending_date, trending_country, tags, view_count, likes,
                                                                        comment_count, thumbnail_link, comments_disabled,
                                                                        ratings_disabled, description]]
         data_dict = dict(zip(header,line))
@@ -135,43 +139,28 @@ def get_pages(country_code, api_key, next_page_token="&"):
 
         # Get all of the items as a list and dictionary and let get_videos return the needed features
         items = video_data_page.get('items', [])
-        videos_data_dict = get_videos(items)
+        videos_data_dict = get_videos(items,country_code)
         country_data_dict  +=  videos_data_dict
 
     return country_data_dict
 
 
-def write_to_file(country_code, list_comments, output_dir):
-    #in case want to debug with see the csv file produced
-    print(f"Writing {country_code} data to file...")
+def get_data(country_codes:List, api_key):
+    # You can iterate over country code in this function if you want
+    data_list = []
+    for code in country_codes:
+        trending_data_dict = get_pages(code, api_key)
+        data_list.extend(trending_data_dict)
 
-    if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-    df = pd.DataFrame(columns=header)
-    for comment in list_comments:
-        # print(json.dumps(comment, indent=2))
-        df_to_append = pd.DataFrame([comment])
-        df = pd.concat([df,df_to_append],axis=0, ignore_index=True)
-
-    df.to_csv(f"{output_dir}/{time.strftime('%y.%d.%m')}_{country_code}_videos.csv", index=False)
-
-def get_data(country_code, api_key):
-    trending_data_dict = get_pages(country_code, api_key)
-    return trending_data_dict
+    return data_list
 
 if __name__ == "__main__":
-
-    output_dir = 'trend_output/'
-
     # Load .env
     load_dotenv()
     api_key = os.getenv("YOUTUBE_API_KEY")
-    country_code = "ID" # Indonesia
+    country_code = COUNTRY_CODES
 
     youtube_trending_data = get_data(country_code, api_key)
 
-    for comment in youtube_trending_data:
-        print(json.dumps(comment.__dict__, default=str,  indent=2))
-
-    #write_to_file(country_code, youtube_trending_data, output_dir)
+    for data in youtube_trending_data:
+        print(json.dumps(data.__dict__, default=str,  indent=2))
