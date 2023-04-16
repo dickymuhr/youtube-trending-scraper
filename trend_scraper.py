@@ -67,7 +67,7 @@ def get_duration(duration_iso):
 
 
 def get_videos(items,country_code):
-    data_dicts = []
+    data_videos = []
     for video in items:
         comments_disabled = False
         ratings_disabled = False
@@ -118,12 +118,12 @@ def get_videos(items,country_code):
                                                                        ratings_disabled, description]]
         data_dict = dict(zip(header,line))
         # Append videos object to list
-        data_dicts.append(Video.from_dict(data_dict))
-    return data_dicts
+        data_videos.append(Video.from_dict(data_dict))
+    return data_videos
 
 
 def get_pages(country_code, api_key, next_page_token="&"):
-    country_data_dict = []
+    country_data = []
 
     # Because the API uses page tokens (which are literally just the same function of numbers everywhere) it is much
     # more inconvenient to iterate over pages, but that is what is done here.
@@ -139,18 +139,18 @@ def get_pages(country_code, api_key, next_page_token="&"):
 
         # Get all of the items as a list and dictionary and let get_videos return the needed features
         items = video_data_page.get('items', [])
-        videos_data_dict = get_videos(items,country_code)
-        country_data_dict  +=  videos_data_dict
+        videos_data = get_videos(items,country_code)
+        country_data.extend(videos_data)  
 
-    return country_data_dict
+    return country_data
 
 
 def get_data(country_codes:List, api_key):
     # You can iterate over country code in this function if you want
     data_list = []
     for code in country_codes:
-        trending_data_dict = get_pages(code, api_key)
-        data_list.extend(trending_data_dict)
+        trending_data = get_pages(code, api_key)
+        data_list.extend(trending_data)
 
     return data_list
 
