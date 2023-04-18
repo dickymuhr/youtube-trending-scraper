@@ -3,16 +3,18 @@ from typing import List
 from dotenv import load_dotenv
 import datetime
 from category import CATEGORY_DICT
-from settings import COUNTRY_CODES
+from settings import COUNTRY_CODES, LIMIT_TRENDS
 from video import Video
 import pycountry
 
+max_results_per_page = 50 #result per page
 
 def api_request(page_token, country_code, api_key):
     # Builds the URL and requests the JSON from it
 
     request_url = f"https://www.googleapis.com/youtube/v3/videos?part=id,statistics,snippet,contentDetails{page_token}chart=mostPopular&regionCode={country_code}&maxResults=50&key={api_key}"
-    
+    print(request_url)
+    print(page_token)
     while True:
         try:
             request = requests.get(request_url, timeout=6)
@@ -101,12 +103,13 @@ def get_videos(items,country_code):
     return data_videos
 
 
-def get_pages(country_code, api_key, next_page_token="&"):
+def get_pages(country_code, api_key, limit=200,next_page_token="&"):
     country_data = []
+    total_result = 0
 
     # Because the API uses page tokens (which are literally just the same function of numbers everywhere) it is much
     # more inconvenient to iterate over pages, but that is what is done here.
-    while next_page_token is not None:
+    while (next_page_token is not None) and (total_result < limit):
         # A page of data i.e. a list of videos and all needed data
 
         video_data_page = api_request(next_page_token, country_code, api_key)
@@ -120,15 +123,15 @@ def get_pages(country_code, api_key, next_page_token="&"):
         items = video_data_page.get('items', [])
         videos_data = get_videos(items,country_code)
         country_data.extend(videos_data)  
-
+        total_result+=max_results_per_page
     return country_data
 
 
-def get_data(country_codes:List, api_key):
+def get_data(country_codes:List, api_key, limit):
     # You can iterate over country code in this function if you want
     data_list = []
     for code in country_codes:
-        trending_data = get_pages(code, api_key)
+        trending_data = get_pages(code, api_key, limit)
         data_list.extend(trending_data)
 
     return data_list
@@ -138,8 +141,9 @@ if __name__ == "__main__":
     load_dotenv()
     api_key = os.getenv("YOUTUBE_API_KEY")
     country_code = COUNTRY_CODES
+    limit_trend = LIMIT_TRENDS
 
-    youtube_trending_data = get_data(country_code, api_key)
+    youtube_trending_data = get_data(country_code, api_key, limit_trend)
 
     for data in youtube_trending_data:
         print(json.dumps(data.__dict__, default=str,  indent=2))

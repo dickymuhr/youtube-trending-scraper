@@ -2,6 +2,7 @@ from typing import Dict, List
 import json
 from kafka import KafkaConsumer
 
+from comment import Comment
 from video import Video
 from settings import BOOTSTRAP_SERVERS, KAFKA_TOPIC
 
@@ -21,7 +22,8 @@ class JsonConsumer:
                 for message_key, message_value in message.items():
                     for msg_val in message_value:
                         # print(msg_val.key)
-                        print(json.dumps(msg_val.value.__dict__, default=str,  indent=2))
+                        # print(json.dumps(msg_val.value.__dict__["video_id"], default=str,  indent=2))
+                        yield msg_val.value.__dict__
             except KeyboardInterrupt:
                 break
 
@@ -38,4 +40,13 @@ if __name__ == '__main__':
     }
 
     json_consumer = JsonConsumer(props=config)
-    json_consumer.consume_from_kafka(topics=[KAFKA_TOPIC])
+    total_trend_comment = 0
+    total_comment = 0
+    for message in json_consumer.consume_from_kafka(topics=[KAFKA_TOPIC]):
+        # print(json.dumps(message, default=str,  indent=2))
+        total_trend_comment+=message["comment_count"]
+        total_comment+=1
+        print(f"{message['video_id']}:{message['comment_count']}")
+        print(total_comment)
+
+    print(total_trend_comment)

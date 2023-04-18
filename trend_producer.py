@@ -5,6 +5,7 @@ from typing import List, Dict
 from kafka import KafkaProducer
 from kafka.errors import KafkaTimeoutError
 from video import Video
+from settings import COUNTRY_CODES
 
 from settings import BOOTSTRAP_SERVERS, KAFKA_TOPIC
 
@@ -33,9 +34,9 @@ if __name__ == "__main__":
     # Call scraper
     load_dotenv()
     api_key = os.getenv("YOUTUBE_API_KEY")
-    country_code = "ID" # Indonesia
+    country_code = COUNTRY_CODES
 
-    youtube_trending_data = trend_scraper.get_data(country_code, api_key)
+    youtube_trending_data = trend_scraper.get_data(country_code, api_key,limit=100)
 
     # Publish
     producer.publish_trends(topic=KAFKA_TOPIC, messages=youtube_trending_data)
