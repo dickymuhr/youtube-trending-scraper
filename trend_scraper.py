@@ -1,31 +1,11 @@
 import requests, sys, time, os, datetime, json, re
 from typing import List
 from dotenv import load_dotenv
-import pandas as pd
+import datetime
 from category import CATEGORY_DICT
 from settings import COUNTRY_CODES
 from video import Video
 import pycountry
-
-# List of simple to collect features
-snippet_features = ["title",
-                    "publishedAt",
-                    "channelId",
-                    "channelTitle"]
-
-# Any characters to exclude, generally these are things that become problematic in CSV files
-unsafe_characters = ['\n', '"']
-
-# Used to identify columns, currently hardcoded order
-header = ["video_id"] + snippet_features + ["category","duration","trending_date", "trending_country" ,"tags", "view_count", "likes",
-                                            "comment_count", "thumbnail_link", "comments_disabled",
-                                            "ratings_disabled", "description"]
-
-def prepare_feature(feature):
-    # Removes any character from the unsafe characters list and surrounds the whole item in quotes
-    for ch in unsafe_characters:
-        feature = str(feature).replace(ch, "")
-    return feature
 
 
 def api_request(page_token, country_code, api_key):
@@ -52,10 +32,6 @@ def api_request(page_token, country_code, api_key):
     return request.json()
 
 
-def get_tags(tags_list):
-    # Takes a list of tags, prepares each tag and joins them into a string by the pipe character
-    return prepare_feature("|".join(tags_list))
-
 def get_duration(duration_iso):
     match = re.match(r'^PT((\d+)H)?((\d+)M)?((\d+)S)?$', duration_iso)
     hours = int(match.group(2)) if match.group(2) else 0
@@ -77,23 +53,28 @@ def get_videos(items,country_code):
         if "statistics" not in video:
             continue
 
-        video_id = prepare_feature(video['id'])
+        video_id = video['id']
 
         # Snippet and statistics are sub-dicts of video, containing the most useful info
         snippet = video['snippet']
         statistics = video['statistics']
 
         # This list contains all of the features in snippet that are 1 deep and require no special processing
-        features = [prepare_feature(snippet.get(feature, "")) for feature in snippet_features]
+        # List of simple to collect features
+
+        title = snippet.get("title","")
+        published = datetime.datetime.fromisoformat(snippet.get("publishedAt","")[:-1])
+        channelId = snippet.get("channelId","")
+        channelTitle = snippet.get("channelTitle","")
 
         # The following are special case features which require unique processing, or are not within the snippet dict
         category = CATEGORY_DICT[snippet.get("categoryId","0")]
         description = snippet.get("description", "")
         thumbnail_link = snippet.get("thumbnails", dict()).get("default", dict()).get("url", "")
-        trending_date = time.strftime("%y.%d.%m")
+        trending_date = datetime.date.today().isoformat()
         trending_country = pycountry.countries.get(alpha_2=country_code).name
-        tags = get_tags(snippet.get("tags", ["[none]"]))
-        view_count = statistics.get("viewCount", 0)
+        tags = snippet.get("tags", ["[none]"]) # "|".join(tags_list)
+        view_count = int(statistics.get("viewCount", 0))
 
         content_details = video['contentDetails']
         duration  = get_duration(content_details.get("duration",0))
@@ -101,24 +82,22 @@ def get_videos(items,country_code):
         # This may be unclear, essentially the way the API works is that if a video has comments or ratings disabled
         # then it has no feature for it, thus if they don't exist in the statistics dict we know they are disabled
         if 'likeCount' in statistics:
-            likes = statistics['likeCount']
+            likes = int(statistics['likeCount'])
         else:
             ratings_disabled = True
             likes = 0
 
         if 'commentCount' in statistics:
-            comment_count = statistics['commentCount']
+            comment_count = int(statistics['commentCount'])
         else:
             comments_disabled = True
             comment_count = 0
 
         # Compiles all of the various bits of info into one consistently formatted line
-        line = [video_id] + features + [prepare_feature(x) for x in [category, duration,trending_date, trending_country, tags, view_count, likes,
+        feature = [video_id] + [title,published,channelId,channelTitle] +  [category, duration,trending_date, trending_country, tags, view_count, likes,
                                                                        comment_count, thumbnail_link, comments_disabled,
-                                                                       ratings_disabled, description]]
-        data_dict = dict(zip(header,line))
-        # Append videos object to list
-        data_videos.append(Video.from_dict(data_dict))
+                                                                       ratings_disabled, description]
+        data_videos.append(Video(feature))
     return data_videos
 
 

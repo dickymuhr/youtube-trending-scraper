@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
-import requests, os, sys
+import requests, os, sys, json, datetime
 from typing import List
 from settings import VIDEO_ID_EX
+from comment import Comment
 
 def api_request(page_token,video_id, api_key):
      
@@ -36,10 +37,12 @@ def get_comments(items, is_reply = False, replied_to=None):
         video_id = snippet['videoId']
         text = snippet['textOriginal']
         author = snippet['authorDisplayName']
-        published = snippet['publishedAt']
+        published = datetime.datetime.fromisoformat(snippet.get("publishedAt","")[:-1])
         total_like = snippet['likeCount']
 
-        data_comments.append([comment_id, total_reply, video_id, text, author, published, total_like, is_reply, replied_to])
+        feature = [comment_id, video_id, text, author, published, total_like, total_reply, is_reply, replied_to]
+
+        data_comments.append(Comment(feature))
         # look for replies
         if total_reply > 0:
             replies = comment['replies']
@@ -78,6 +81,7 @@ if __name__ == "__main__":
 
     youtube_comment_data = get_data(VIDEO_ID_EX, api_key)
     for data in youtube_comment_data:
-        print(data)
+        print(json.dumps(data.__dict__, default=str,  indent=2))
+
 
     print(len(youtube_comment_data))
